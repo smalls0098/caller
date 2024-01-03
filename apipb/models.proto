@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package caller;
+
+option go_package = ".;apipb";
+
+message HeaderValue {
+    repeated string items = 1;
+}
+
+message CallRequest {
+    // 请求方法
+    string method = 1;
+    // 请求地址
+    string url = 2;
+    // 请求header
+    map<string, HeaderValue> headers = 3;
+    // 请求body
+    bytes body = 4;
+    // 代理(空则为不启动)
+    string proxy = 5;
+}
+
+message CallResponse {
+    // 状态码
+    int32 status_code = 1;
+    // 相应header
+    map<string, HeaderValue> headers = 2;
+    // 内容长度
+    int64 content_length = 3;
+    // 相应body
+    bytes body = 4;
+}
