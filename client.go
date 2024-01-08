@@ -9,7 +9,7 @@ import (
 	"github.com/smalls0098/caller/apipb"
 )
 
-func Client(apiUrl string) Caller {
+func Client(apiUrl string, proxy string) Caller {
 	return func(c *http.Client, r *http.Request) (*http.Response, error) {
 		if len(apiUrl) == 0 {
 			return c.Do(r) // 系统执行
@@ -31,6 +31,7 @@ func Client(apiUrl string) Caller {
 			Url:     r.URL.String(),
 			Headers: header2protoHeader(r.Header),
 			Body:    body,
+			Proxy:   proxy,
 		})
 		if err != nil {
 			return nil, err
