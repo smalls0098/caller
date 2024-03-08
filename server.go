@@ -180,6 +180,7 @@ func copyBuffer(dst io.Writer, src io.Reader, buf []byte) (int64, error) {
 }
 
 func writeErr(w http.ResponseWriter, err error) {
+	w.Header().Set("is_err", "1")
 	w.WriteHeader(http.StatusBadRequest)
 	w.Write([]byte(err.Error()))
 }

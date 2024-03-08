@@ -2,6 +2,7 @@ package caller
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 
@@ -40,6 +41,24 @@ func Client(apiUrl string, proxy string) Caller {
 		if err != nil {
 			return nil, err
 		}
-		return client.Do(req)
+		res, err := client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.StatusCode == http.StatusBadRequest && res.Header.Get("is_err") == "1" {
+			msg := ""
+			if res.Body != nil {
+				data, e := io.ReadAll(res.Body)
+				_ = res.Body.Close()
+				if e != nil {
+					return nil, e
+				}
+				msg = string(data)
+			}
+			return nil, errors.New(msg)
+		}
+
+		return res, err
 	}
 }
