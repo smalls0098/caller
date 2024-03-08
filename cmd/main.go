@@ -3,74 +3,68 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
-	"os"
-	"os/signal"
 	"time"
 
-	"github.com/smalls0098/caller"
+	coreCaller "github.com/smalls0098/caller"
+	pkgApp "github.com/smalls0098/caller/pkg/app"
+	pkgHttp "github.com/smalls0098/caller/pkg/server/http"
 )
 
 var (
-	p     string
-	pwd   string
-	debug bool
+	pwd string
+	p   int
 )
 
 func init() {
-	flag.StringVar(&p, "p", "13802", "server port, default: 13802")
+	flag.IntVar(&p, "p", 13802, "server port, default: 13802")
 	flag.StringVar(&pwd, "pwd", "", "check password")
-	flag.BoolVar(&debug, "debug", false, "open debug mode, default: false")
 }
 
 func main() {
 	// 执行命令行
 	flag.Parse()
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("smalls caller"))
-	})
-	http.HandleFunc("/call", func(w http.ResponseWriter, r *http.Request) {
-		if len(pwd) > 0 {
-			pass := r.URL.Query().Get("pwd")
-			if pass != pwd {
-				w.WriteHeader(http.StatusUnauthorized)
-				w.Write([]byte{})
-				return
-			}
-		}
-		call(w, r)
-	})
-	server := http.Server{Addr: "0.0.0.0:" + p}
-	go func() {
-		if err := server.ListenAndServe(); err != nil { // 监听处理
-			log.Println("server start failed")
-		}
-	}()
-	log.Println("running: [http://127.0.0.1:" + p + "]")
+	gin.SetMode(gin.ReleaseMode)
+	s := pkgHttp.NewServer(
+		gin.New(),
+		pkgHttp.WithServerHost("0.0.0.0"),
+		pkgHttp.WithServerPort(p),
+		pkgHttp.WithServerTimeout(20*time.Second),
+	)
+	s.Use(gin.Recovery())
+	s.NoRoute(noHandle)
+	s.NoMethod(noHandle)
+	s.GET("/", index)
+	s.POST("/call", caller)
 
-	// 通过信号量的方式停止服务，如果有一部分请求进行到一半，处理完成再关闭服务器
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	s := <-c
-	log.Printf("接收信号：%s\n", s)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
-		log.Println("server shutdown failed")
+	app := pkgApp.New(
+		pkgApp.WithServer(s),
+		pkgApp.WithName("caller"),
+	)
+	log.Printf("running: [http://127.0.0.1:%d]", p)
+	if err := app.Run(context.Background()); err != nil {
+		panic(err)
 	}
-	log.Println("server exit")
 }
 
-func call(w http.ResponseWriter, r *http.Request) {
-	if err := recover(); err != nil {
-		log.Println(err)
+func index(ctx *gin.Context) {
+	ctx.String(http.StatusOK, "nw smalls caller\nok")
+}
+
+func noHandle(ctx *gin.Context) {
+	ctx.String(http.StatusNotFound, "not found")
+}
+
+func caller(ctx *gin.Context) {
+	if len(pwd) > 0 {
+		pass := ctx.Query("pwd")
+		if pass != pwd {
+			ctx.String(http.StatusUnauthorized, "unauthorized")
+			return
+		}
 	}
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("404 not found"))
-		return
-	}
-	caller.Server(w, r, debug)
+	coreCaller.Server(ctx.Writer, ctx.Request)
 }

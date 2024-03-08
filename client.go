@@ -2,7 +2,6 @@ package caller
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"net/http"
 
@@ -26,10 +25,10 @@ func Client(apiUrl string, proxy string) Caller {
 			}
 		}
 
-		callReq, err := marshal(&apipb.CallRequest{
+		callReq, err := marshal(&apipb.CallReq{
 			Method:  r.Method,
 			Url:     r.URL.String(),
-			Headers: header2protoHeader(r.Header),
+			Headers: header2protoValue(r.Header),
 			Body:    body,
 			Proxy:   proxy,
 		})
@@ -41,35 +40,6 @@ func Client(apiUrl string, proxy string) Caller {
 		if err != nil {
 			return nil, err
 		}
-		req.Header.Set("Content-Type", "application/gpb")
-		resp, err := client.Do(req)
-		if err != nil {
-			return nil, err
-		}
-		if resp.Body == nil {
-			return resp, err
-		}
-		defer resp.Body.Close()
-		callBody, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		callResp := &apipb.CallResponse{}
-		if err = unmarshal(callBody, callResp); err != nil {
-			return nil, err
-		}
-		if callResp.GetStatusCode() == 0 {
-			return nil, errors.New("status code is 0")
-		}
-
-		resp.StatusCode = int(callResp.GetStatusCode())
-		resp.Header = protoHeader2header(callResp.GetHeaders())
-		resp.ContentLength = callResp.GetContentLength()
-		if len(callResp.Body) > 0 {
-			resp.Body = io.NopCloser(bytes.NewReader(callResp.GetBody()))
-		}
-
-		return resp, err
+		return client.Do(req)
 	}
 }

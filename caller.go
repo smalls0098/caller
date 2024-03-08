@@ -36,15 +36,15 @@ var client = &http.Client{
 	},
 }
 
-func header2protoHeader(h http.Header) map[string]*apipb.HeaderValue {
-	res := map[string]*apipb.HeaderValue{}
+func header2protoValue(h http.Header) map[string]*apipb.CallReq_HeaderValue {
+	res := map[string]*apipb.CallReq_HeaderValue{}
 	for k, vs := range h {
-		res[k] = &apipb.HeaderValue{Items: vs}
+		res[k] = &apipb.CallReq_HeaderValue{Items: vs}
 	}
 	return res
 }
 
-func protoHeader2header(h map[string]*apipb.HeaderValue) http.Header {
+func protoValue2header(h map[string]*apipb.CallReq_HeaderValue) http.Header {
 	res := http.Header{}
 	for k, vs := range h {
 		for _, s := range vs.Items {

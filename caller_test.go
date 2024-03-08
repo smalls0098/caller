@@ -10,7 +10,7 @@ import (
 
 func Test_caller(t *testing.T) {
 	caller := Caller(func(c *http.Client, req *http.Request) (*http.Response, error) {
-		return Client("http://127.0.0.1:13802/call")(c, req)
+		return Client("http://127.0.0.1:13802/call", "")(c, req)
 	})
 	params := url.Values{}
 	params.Set("username", "smalls")

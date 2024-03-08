@@ -1,5 +1,5 @@
-.PHONY: models
-models:
+.PHONY: gen
+gen:
 	cd apipb && protoc --go_out=. models.proto
 
 .PHONY: build
