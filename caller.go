@@ -3,7 +3,7 @@ package caller
 import (
 	"bytes"
 	"compress/gzip"
-	"crypto/tls"
+	"context"
 	"io"
 	"net"
 	"net/http"
@@ -16,24 +16,27 @@ import (
 
 type Caller func(c *http.Client, req *http.Request) (*http.Response, error)
 
+var transport = &http.Transport{
+	DialContext: defaultTransportDialContext(&net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}),
+	ForceAttemptHTTP2:     true,
+	MaxIdleConns:          100,
+	IdleConnTimeout:       90 * time.Second,
+	TLSHandshakeTimeout:   10 * time.Second,
+	ExpectContinueTimeout: 1 * time.Second,
+}
+
 var client = &http.Client{
 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	},
-	Transport: &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   10 * time.Second, // 请求超时
-			KeepAlive: 10 * time.Second, // 检测连接是否存活
-		}).DialContext,
-		ForceAttemptHTTP2:     false,
-		MaxIdleConns:          50,
-		IdleConnTimeout:       60 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-	},
+	Transport: transport,
+}
+
+func defaultTransportDialContext(dialer *net.Dialer) func(context.Context, string, string) (net.Conn, error) {
+	return dialer.DialContext
 }
 
 func header2protoValue(h http.Header) map[string]*apipb.CallReq_HeaderValue {

@@ -3,16 +3,14 @@ package caller
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"errors"
 	"github.com/smalls0098/caller/apipb"
 	"io"
-	"net"
+	"log"
 	"net/http"
 	"net/textproto"
 	"net/url"
 	"strings"
-	"time"
 )
 
 func serverClient(proxy string) *http.Client {
@@ -23,46 +21,20 @@ func serverClient(proxy string) *http.Client {
 	if err != nil {
 		return client
 	}
+	t := transport.Clone()
+	t.Proxy = func(req *http.Request) (*url.URL, error) {
+		return u, nil
+	}
 	return &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout:   10 * time.Second, // 请求超时
-				KeepAlive: 10 * time.Second, // 检测连接是否存活
-			}).DialContext,
-			ForceAttemptHTTP2:     false,
-			MaxIdleConns:          50,
-			IdleConnTimeout:       60 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-			Proxy: func(req *http.Request) (*url.URL, error) {
-				return u, nil
-			},
-		},
+		Transport: t,
 	}
 }
 
 func Server(rw http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	if ctx.Done() != nil {
-	} else if cn, ok := rw.(http.CloseNotifier); ok {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithCancel(ctx)
-		defer cancel()
-		notifyChan := cn.CloseNotify()
-		go func() {
-			select {
-			case <-notifyChan:
-				cancel()
-			case <-ctx.Done():
-			}
-		}()
-	}
 
 	params, err := parseParams(r)
 	if err != nil {
@@ -85,13 +57,16 @@ func Server(rw http.ResponseWriter, r *http.Request) {
 	copyHeader(rw.Header(), res.Header)
 	rw.WriteHeader(res.StatusCode)
 
-	defer res.Body.Close()
-
-	var buf []byte
-	_, err = copyBuffer(rw, res.Body, buf)
-	if err != nil {
-		writeErr(rw, err)
-		return
+	if res.Body != nil {
+		defer func() {
+			_, _ = io.CopyN(io.Discard, res.Body, 1024*4)
+			_ = res.Body.Close()
+		}()
+		_, err = io.Copy(rw, res.Body)
+		if err != nil {
+			writeErr(rw, err)
+			return
+		}
 	}
 }
 
@@ -126,13 +101,10 @@ func makeReq(ctx context.Context, params *apipb.CallReq) (*http.Request, error) 
 	}
 
 	// set body
-	var body io.ReadCloser = nil
 	if len(params.GetBody()) > 0 {
-		body = io.NopCloser(bytes.NewReader(params.GetBody()))
-	}
-	req.Body = body
-	if req.Body != nil {
-		defer req.Body.Close()
+		req.Body = io.NopCloser(bytes.NewReader(params.GetBody()))
+	} else {
+		req.Body = http.NoBody
 	}
 
 	// set header
@@ -144,45 +116,14 @@ func makeReq(ctx context.Context, params *apipb.CallReq) (*http.Request, error) 
 		req.Header.Set("User-Agent", "")
 	}
 	removeHopByHopHeaders(req.Header)
-
 	return req, nil
-}
-
-func copyBuffer(dst io.Writer, src io.Reader, buf []byte) (int64, error) {
-	if len(buf) == 0 {
-		buf = make([]byte, 32*1024)
-	}
-	var written int64
-	for {
-		nr, rerr := src.Read(buf)
-		if rerr != nil && rerr != io.EOF && !errors.Is(rerr, context.Canceled) {
-
-		}
-		if nr > 0 {
-			nw, werr := dst.Write(buf[:nr])
-			if nw > 0 {
-				written += int64(nw)
-			}
-			if werr != nil {
-				return written, werr
-			}
-			if nr != nw {
-				return written, io.ErrShortWrite
-			}
-		}
-		if rerr != nil {
-			if rerr == io.EOF {
-				rerr = nil
-			}
-			return written, rerr
-		}
-	}
 }
 
 func writeErr(w http.ResponseWriter, err error) {
 	w.Header().Set("is_err", "1")
 	w.WriteHeader(http.StatusBadRequest)
 	w.Write([]byte(err.Error()))
+	log.Printf("writeErr: %+v", err)
 }
 
 func copyHeader(dst, src http.Header) {
