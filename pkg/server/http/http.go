@@ -50,6 +50,7 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 	if err := s.httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Printf("listen: %s", err)
+		return err
 	}
 	return nil
 }
@@ -60,6 +61,7 @@ func (s *Server) Stop(ctx context.Context) error {
 	defer cancel()
 	if err := s.httpSrv.Shutdown(ctx); err != nil {
 		log.Fatal("Server forced to shutdown: ", err)
+		return err
 	}
 	log.Print("Server exiting")
 	return nil
