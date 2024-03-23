@@ -2,7 +2,7 @@ package app
 
 import (
 	"context"
-	"github.com/smalls0098/caller/pkg/server"
+	"github.com/smalls0098/caller/pkg/app/server"
 	"log"
 	"os"
 	"os/signal"
