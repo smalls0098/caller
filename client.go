@@ -10,6 +10,10 @@ import (
 )
 
 func Client(apiUrl string, proxy string) Caller {
+	return ClientWithInterceptor(apiUrl, proxy, nil)
+}
+
+func ClientWithInterceptor(apiUrl string, proxy string, interceptor Interceptor) Caller {
 	return func(c *http.Client, r *http.Request) (*http.Response, error) {
 		if len(apiUrl) == 0 {
 			return c.Do(r) // 系统执行
@@ -37,13 +41,28 @@ func Client(apiUrl string, proxy string) Caller {
 			return nil, err
 		}
 
+		// 请求
 		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiUrl, bytes.NewReader(callReq))
 		if err != nil {
 			return nil, err
 		}
+		if interceptor != nil {
+			req, err = interceptor.OnBefore(req)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		// 结果
 		res, err := client.Do(req)
 		if err != nil {
 			return nil, err
+		}
+		if interceptor != nil {
+			res, err = interceptor.OnAfter(res)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		if res.StatusCode == http.StatusBadRequest && res.Header.Get("is_err") == "1" {

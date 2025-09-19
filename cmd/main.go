@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/gin-gonic/gin"
-	pkgHttp "github.com/smalls0098/caller/pkg/app/server/http"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	pkgHttp "github.com/smalls0098/caller/pkg/app/server/http"
 
 	coreCaller "github.com/smalls0098/caller"
 	pkgApp "github.com/smalls0098/caller/pkg/app"
@@ -24,7 +25,6 @@ func init() {
 }
 
 func main() {
-	// 执行命令行
 	flag.Parse()
 
 	gin.SetMode(gin.ReleaseMode)

@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/smalls0098/caller/apipb"
 	"io"
 	"log"
 	"net/http"
 	"net/textproto"
 	"net/url"
 	"strings"
+
+	"github.com/smalls0098/caller/apipb"
 )
 
-func serverClient(proxy string) *http.Client {
+func buildServerHttpClient(proxy string) *http.Client {
 	if len(proxy) == 0 {
 		return client
 	}
@@ -34,6 +35,10 @@ func serverClient(proxy string) *http.Client {
 }
 
 func Server(rw http.ResponseWriter, r *http.Request) {
+	ServerWithInterceptor(rw, r, nil)
+}
+
+func ServerWithInterceptor(rw http.ResponseWriter, r *http.Request, interceptor Interceptor) {
 	ctx := r.Context()
 
 	params, err := parseParams(r)
@@ -41,16 +46,33 @@ func Server(rw http.ResponseWriter, r *http.Request) {
 		writeErr(rw, err)
 		return
 	}
+
+	// 请求
 	req, err := makeReq(ctx, params)
 	if err != nil {
 		writeErr(rw, err)
 		return
 	}
+	if interceptor != nil {
+		req, err = interceptor.OnBefore(req)
+		if err != nil {
+			writeErr(rw, err)
+			return
+		}
+	}
 
-	res, err := serverClient(params.GetProxy()).Do(req)
+	// 结果
+	res, err := buildServerHttpClient(params.GetProxy()).Do(req)
 	if err != nil {
 		writeErr(rw, err)
 		return
+	}
+	if interceptor != nil {
+		res, err = interceptor.OnAfter(res)
+		if err != nil {
+			writeErr(rw, err)
+			return
+		}
 	}
 
 	removeHopByHopHeaders(res.Header)

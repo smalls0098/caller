@@ -2,11 +2,12 @@ package app
 
 import (
 	"context"
-	"github.com/smalls0098/caller/pkg/app/server"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/smalls0098/caller/pkg/app/server"
 )
 
 func WithServer(servers ...server.Server) Option {
