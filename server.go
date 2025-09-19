@@ -16,21 +16,27 @@ import (
 
 func buildServerHttpClient(proxy string) *http.Client {
 	if len(proxy) == 0 {
-		return client
+		return DefaultHttpClient
 	}
 	u, err := url.Parse(proxy)
 	if err != nil {
-		return client
+		return DefaultHttpClient
 	}
-	t := transport.Clone()
-	t.Proxy = func(req *http.Request) (*url.URL, error) {
+
+	origin, ok := DefaultHttpClient.Transport.(*http.Transport)
+	if !ok {
+		return DefaultHttpClient
+	}
+
+	tr := origin.Clone()
+	tr.Proxy = func(req *http.Request) (*url.URL, error) {
 		return u, nil
 	}
 	return &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
-		Transport: t,
+		Transport: tr,
 	}
 }
 

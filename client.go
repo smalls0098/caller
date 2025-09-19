@@ -54,7 +54,7 @@ func ClientWithInterceptor(apiUrl string, proxy string, interceptor Interceptor)
 		}
 
 		// 结果
-		res, err := client.Do(req)
+		res, err := DefaultHttpClient.Do(req)
 		if err != nil {
 			return nil, err
 		}

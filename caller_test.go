@@ -18,7 +18,7 @@ func Test_caller(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp, err := caller(client, req)
+	resp, err := caller(DefaultHttpClient, req)
 	if err != nil {
 		t.Fatal(err)
 	}
